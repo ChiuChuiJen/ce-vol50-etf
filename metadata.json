@@ -1,0 +1,5 @@
+{
+  "name": "Crypto50 ETF Realtime",
+  "description": "A real-time ETF dashboard tracking the Top 50 Cryptocurrencies by volume on Binance, featuring professional K-line charts and bilingual support.",
+  "requestFramePermissions": []
+}

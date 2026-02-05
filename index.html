@@ -1,221 +1,70 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CV50 ETF Index Terminal</title>
-    <!-- 載入外部資源：Tailwind, React, Lucide -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto50 ETF | Realtime Index</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0b0e11; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2b3139; border-radius: 10px; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // 核心設定
-        const CONFIG = {
-            INCEPTION_TIME: "2026-02-05T12:00:00+08:00",
-            START_PRICE: 10.000000,
-            REFRESH_INTERVAL: 1000, // 1秒更新
-            API_SYNC_INTERVAL: 60000 // 1分鐘同步API
-        };
-
-        const translations = {
-            zh: {
-                title: "CV50 實時指數引擎",
-                inception: "啟動時間",
-                roi: "累計收益率",
-                base: "起始基準",
-                components: "成分幣",
-                loading: "正在同步幣安流動性數據...",
-                asset: "資產",
-                price: "即時價",
-                weight: "權重",
-                footer: "數據來源：Binance Spot API V3",
-                langBtn: "English"
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              binance: {
+                black: '#1E2329',
+                dark: '#0B0E11',
+                gray: '#474D57',
+                light: '#EAECEF',
+                yellow: '#FCD535',
+                green: '#0ECB81',
+                red: '#F6465D',
+                text: '#848E9C'
+              }
             },
-            en: {
-                title: "CV50 REAL-TIME ENGINE",
-                inception: "Inception",
-                roi: "Accumulated ROI",
-                base: "Start Base",
-                components: "Components",
-                loading: "Syncing Binance Liquidity...",
-                asset: "Asset",
-                price: "Live Price",
-                weight: "Weight",
-                footer: "Source: Binance Spot API V3",
-                langBtn: "中文"
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
             }
-        };
-
-        const App = () => {
-            const [lang, setLang] = useState('zh');
-            const [tickers, setTickers] = useState([]);
-            const [indexPrice, setIndexPrice] = useState(CONFIG.START_PRICE);
-            const [flash, setFlash] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [now, setNow] = useState(new Date());
-
-            const t = translations[lang];
-            const inceptionTS = new Date(CONFIG.INCEPTION_TIME).getTime();
-
-            // 數據抓取
-            const fetchTickers = async () => {
-                try {
-                    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr');
-                    const data = await res.json();
-                    const top50 = data
-                        .filter(d => d.symbol.endsWith('USDT') && !['USDCUSDT', 'FDUSDUSDT'].includes(d.symbol) && !d.symbol.includes('UP') && !d.symbol.includes('DOWN'))
-                        .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-                        .slice(0, 50);
-
-                    const totalVol = top50.reduce((acc, c) => acc + parseFloat(c.quoteVolume), 0);
-                    setTickers(top50.map(item => ({
-                        symbol: item.symbol.replace('USDT', ''),
-                        price: parseFloat(item.lastPrice),
-                        weight: parseFloat(item.quoteVolume) / totalVol,
-                        drift: (parseFloat(item.priceChangePercent) / 100) / 86400
-                    })));
-                    setLoading(false);
-                } catch (err) { console.error("API Error:", err); }
-            };
-
-            useEffect(() => {
-                fetchTickers();
-                const apiTimer = setInterval(fetchTickers, CONFIG.API_SYNC_INTERVAL);
-                
-                const tickTimer = setInterval(() => {
-                    const current = new Date();
-                    setNow(current);
-                    
-                    setIndexPrice(prev => {
-                        const change = (Math.random() - 0.5) * 0.0001; // 模擬隨機波動
-                        const next = prev * (1 + change);
-                        setFlash(next > prev ? 'up' : 'down');
-                        setTimeout(() => setFlash(null), 300);
-                        return next;
-                    });
-                }, CONFIG.REFRESH_INTERVAL);
-
-                return () => { clearInterval(apiTimer); clearInterval(tickTimer); };
-            }, []);
-
-            const roi = ((indexPrice - CONFIG.START_PRICE) / CONFIG.START_PRICE * 100).toFixed(6);
-
-            if (loading) return (
-                <div className="min-h-screen bg-[#0b0e11] flex flex-col items-center justify-center text-[#f3ba2f]">
-                    <div className="w-10 h-10 border-4 border-[#f3ba2f] border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-xs font-bold tracking-widest uppercase animate-pulse">{t.loading}</p>
-                </div>
-            );
-
-            return (
-                <div className="min-h-screen flex flex-col p-4 md:p-8">
-                    {/* Header */}
-                    <header className="flex justify-between items-center mb-6 bg-[#1e2329] p-4 rounded-2xl border border-gray-800">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-[#f3ba2f] p-2 rounded-lg"><Activity size={20} className="text-black" /></div>
-                            <h1 className="font-black text-xl tracking-tighter text-white">{t.title}</h1>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-[10px] mono text-gray-500 hidden sm:block">{t.inception}: {CONFIG.INCEPTION_TIME}</span>
-                            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="bg-[#2b3139] px-4 py-1.5 rounded-xl text-xs font-bold border border-gray-700 hover:bg-[#363d46]">
-                                {t.langBtn}
-                            </button>
-                        </div>
-                    </header>
-
-                    {/* Main Display */}
-                    <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <div className="lg:col-span-8 space-y-6">
-                            <div className="bg-[#1e2329] p-8 rounded-3xl border border-gray-800 relative overflow-hidden">
-                                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">CV50 / USDT INDEX</p>
-                                <div className="flex flex-col md:flex-row md:items-end gap-4">
-                                    <div className={`text-7xl md:text-9xl font-black mono tabular-nums transition-colors duration-300 ${flash === 'up' ? 'text-emerald-400' : flash === 'down' ? 'text-rose-400' : 'text-white'}`}>
-                                        {indexPrice.toFixed(6)}
-                                    </div>
-                                    <div className="pb-4">
-                                        <div className={`text-3xl font-black flex items-center ${parseFloat(roi) >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
-                                            {parseFloat(roi) >= 0 ? '↑' : '↓'} {Math.abs(roi)}%
-                                        </div>
-                                        <p className="text-[10px] text-gray-600 font-bold uppercase">{t.roi}</p>
-                                    </div>
-                                </div>
-                                <div className="absolute right-[-20px] bottom-[-20px] opacity-[0.03]">
-                                    <TrendingUp size={300} />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {[
-                                    { label: t.base, val: CONFIG.START_PRICE.toFixed(2), col: "text-white" },
-                                    { label: t.components, val: "50 Tokens", col: "text-emerald-500" },
-                                    { label: "Vol Cap", val: "15.00%", col: "text-blue-400" },
-                                    { label: "Tick", val: "1.0s", col: "text-[#f3ba2f]" }
-                                ].map((item, idx) => (
-                                    <div key={idx} className="bg-[#1e2329] p-5 rounded-2xl border border-gray-800">
-                                        <p className="text-[10px] text-gray-600 font-bold uppercase mb-1">{item.label}</p>
-                                        <p className={`text-xl font-black mono ${item.col}`}>{item.val}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Sidebar List */}
-                        <div className="lg:col-span-4 bg-[#1e2329] rounded-3xl border border-gray-800 flex flex-col overflow-hidden">
-                            <div className="p-5 border-b border-gray-800 bg-[#2b3139]/30 flex justify-between items-center">
-                                <span className="text-xs font-bold tracking-widest uppercase">{t.asset} Feed</span>
-                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                <table className="w-full text-left">
-                                    <thead className="text-[10px] text-gray-600 uppercase border-b border-gray-800">
-                                        <tr>
-                                            <th className="px-5 py-3">#</th>
-                                            <th className="px-5 py-3">{t.asset}</th>
-                                            <th className="px-5 py-3 text-right">{t.price}</th>
-                                            <th className="px-5 py-3 text-right">{t.weight}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-[11px] mono">
-                                        {tickers.map((tk, i) => (
-                                            <tr key={tk.symbol} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                                                <td className="px-5 py-3 text-gray-500">{i+1}</td>
-                                                <td className="px-5 py-3 font-bold text-white">{tk.symbol}</td>
-                                                <td className="px-5 py-3 text-right text-gray-300">{tk.price > 10 ? tk.price.toFixed(2) : tk.price.toFixed(5)}</td>
-                                                <td className="px-5 py-3 text-right text-blue-400">{(tk.weight * 100).toFixed(2)}%</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </main>
-
-                    <footer className="mt-6 flex justify-between items-center px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                        <span>{t.footer}</span>
-                        <span>CV50 v2.0 Live Engine</span>
-                    </footer>
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-        setTimeout(() => lucide.createIcons(), 1000);
+          }
+        }
+      }
     </script>
+    <style>
+      body {
+        background-color: #0B0E11;
+        color: #EAECEF;
+      }
+      /* Custom scrollbar for table */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1E2329; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #474D57; 
+        border-radius: 3px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
